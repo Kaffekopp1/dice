@@ -5,10 +5,10 @@ const http = require("http");
 const server = http.createServer(app);
 const { Server } = require("socket.io");
 const io = new Server(server, {
-	cors: {
-		origin: "http://localhost:3000", // ÄR detta nog för säkerhet? knappast...
-		methods: ["GET", "POST"]
-	}
+  cors: {
+    origin: "http://localhost:3000", // ÄR detta nog för säkerhet? knappast...
+    methods: ["GET", "POST"],
+  },
 });
 app.use(express.json());
 app.use(cors());
@@ -26,54 +26,73 @@ app.use("/auth", authRoutes);
 const jwt = require("jsonwebtoken");
 const secretKey = "your-secret-key";
 
+// variabler för att hålla koll på spel
+let users = [];
+
 const authenticateSocket = (socket, next) => {
-	const token = socket.handshake.auth.token;
-	if (!token) {
-		return next(new Error("Authentication error"));
-	}
-	try {
-		const decoded = jwt.verify(token, secretKey);
-		socket.user = decoded;
-		next();
-	} catch (error) {
-		return next(new Error("Authentication error"));
-	}
+  const token = socket.handshake.auth.token;
+  if (!token) {
+    return next(new Error("Authentication error"));
+  }
+  try {
+    const decoded = jwt.verify(token, secretKey);
+    socket.user = decoded;
+    next();
+  } catch (error) {
+    return next(new Error("Authentication error"));
+  }
 };
 
 io.use((socket, next) => {
-	authenticateSocket(socket, next);
+  authenticateSocket(socket, next);
 });
 
 io.on("connection", (socket) => {
-	console.log(`id: ${socket.id} har loggat in`);
-	socket.on("test", (test) => {
-		console.log("message", test, socket.id);
-	});
-	socket.on("chatMessage", (message) => {
-		console.log("meddelande", message);
-		io.emit("newMessage", { user: message.user, message: message.message });
-	});
-	socket.on("dice", (newThrow) => {
-		console.log("newThrow", newThrow);
-		io.emit("newThrow", {
-			diceValue: newThrow.diceValue,
-			diceThrows: newThrow.diceThrows,
-			total: newThrow.total,
-			user: newThrow.user
-		});
-		const throwToMongo = new DiceModel({
-			user: newThrow.user,
-			diceThrowNr: newThrow.diceThrows,
-			diceValue: newThrow.diceValue,
-			total: newThrow.total
-		});
-		throwToMongo.save();
-	});
-	socket.on("disconnect", () => {
-		console.log(`id: ${socket.id} har loggat ut`);
-	});
+  console.log(`id: ${socket.id} har loggat in`);
+  socket.on("test", (test) => {
+    console.log("message", test, socket.id);
+  });
+
+  socket.on("game", (varde) => {
+    let checkUser = users.filter((us) => us == varde.user);
+    console.log("checkUser", checkUser);
+    console.log("checkUser", checkUser.length);
+    if (checkUser.length <= 0 && users.length < 2) {
+      users.push(varde.user);
+    }
+    checkUser = [];
+    console.log("varde", varde);
+    console.log("users", users);
+    io.emit("players", {
+      user: varde.user,
+      users: users,
+    });
+  });
+  socket.on("chatMessage", (message) => {
+    console.log("meddelande", message);
+    io.emit("newMessage", { user: message.user, message: message.message });
+  });
+  socket.on("dice", (newThrow) => {
+    console.log("newThrow", newThrow);
+    io.emit("newThrow", {
+      diceValue: newThrow.diceValue,
+      diceThrows: newThrow.diceThrows,
+      total: newThrow.total,
+      user: newThrow.user,
+    });
+    const throwToMongo = new DiceModel({
+      user: newThrow.user,
+      diceThrowNr: newThrow.diceThrows,
+      diceValue: newThrow.diceValue,
+      total: newThrow.total,
+    });
+    throwToMongo.save();
+  });
+  socket.on("disconnect", () => {
+    console.log(`id: ${socket.id} har loggat ut`);
+  });
 });
 
 server.listen(port, () => {
-	console.log(`finnes på  http://localhost:${port}/`);
+  console.log(`finnes på  http://localhost:${port}/`);
 });
