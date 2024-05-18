@@ -106,7 +106,6 @@ io.on("connection", (socket) => {
 			user: kast.user
 		});
 		const throwToMongo = new DiceModel({
-			latestPlayer: latestPlayer,
 			diceValue: diceValue,
 			diceThrows: diceThrow,
 			total: total,

@@ -40,6 +40,8 @@ socket.on("connect", () => {
 });
 // när spelare har loggat in hämta andra spelare:
 socket.emit("game", { user: user.value });
+// hämta alla spelare kolla ifall aktuell spelare är aktiv om inte
+// hindra denne från att kunna trycka på knappen.
 socket.on("players", (pl) => {
 	activePlayers.value = pl;
 	console.log(pl.users, "users");
@@ -47,7 +49,7 @@ socket.on("players", (pl) => {
 		? (notPlayer.value = false)
 		: (notPlayer.value = true);
 });
-
+//TODO lägg även total endast i backend
 const throwTheDice = () => {
 	socket.emit("thrower", {
 		total: total.value,
