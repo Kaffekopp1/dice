@@ -8,8 +8,12 @@ import { onMounted, ref } from "vue";
 import nuxtStorage from "nuxt-storage";
 
 const kasten = ref([]);
+const activePlayers = ref([]);
+const notPlayer = ref(false);
+const latestPlayer = ref("");
 const total = ref(0);
-const diceThrows = ref(1);
+const winner = ref(null);
+const diceThrows = ref(0);
 const userMessage = ref(null);
 const messages = ref([]);
 const token = ref(nuxtStorage.localStorage.getData("token"));
@@ -19,6 +23,9 @@ const user = ref(nuxtStorage.localStorage.getData("user"));
 // console.log("okens", localStorage.getItem("user"));
 
 import io from "socket.io-client";
+
+// variabler för att hålla koll på vilka som spelar endast två
+let users = [];
 
 const socket = io("http://localhost:3001", {
 	auth: {
@@ -31,18 +38,22 @@ function test() {
 socket.on("connect", () => {
 	console.log("Connected to Socket.IO server");
 });
-//TODO glöm ej att ändra user till riktig user
+// när spelare har loggat in hämta andra spelare:
+socket.emit("game", { user: user.value });
+socket.on("players", (pl) => {
+	activePlayers.value = pl;
+	console.log(pl.users, "users");
+	user.value == pl.users.filter((player) => player == user.value)[0]
+		? (notPlayer.value = false)
+		: (notPlayer.value = true);
+});
+
 const throwTheDice = () => {
-	console.log("throw");
-	let diceValue = Math.floor(Math.random() * 6 + 1);
-	total.value = total.value + diceValue;
-	socket.emit("dice", {
-		diceValue: diceValue,
-		diceThrows: diceThrows.value,
+	socket.emit("thrower", {
 		total: total.value,
+		diceThrows: diceThrows.value,
 		user: user.value
 	});
-	diceThrows.value++;
 };
 socket.on("newMessage", (message) => {
 	console.log("message", message);
@@ -60,51 +71,107 @@ const sendMessage = () => {
 };
 
 socket.on("newThrow", (diceThrow) => {
-	console.log("dicethrow", diceThrow);
 	kasten.value.unshift(diceThrow);
+	latestPlayer.value = diceThrow.latestPlayer;
+	if (diceThrow.user == user.value) {
+		total.value = diceThrow.total;
+		diceThrows.value = diceThrow.diceThrows;
+	}
 });
+// if not a player
+socket.on("notaplayer", (p) => {
+	console.log(
+		"user",
+		p,
+		user.value,
+		p.users.filter((pl) => pl == user.value)
+	);
+	user.value != p.users.filter((pl) => pl == user.value)[0]
+		? (notPlayer.value = true)
+		: (notPlayer.value = false);
+});
+// if latest player
+socket.on("latestPlayer", (lp) => {
+	latestPlayer.value = lp.latestPlayer;
+});
+// if winner
 
+socket.on("winner", (w) => {
+	winner.value = w.winner;
+	diceThrows.value = 0;
+});
 onBeforeUnmount(() => {
 	socket.disconnect();
 });
+const newgame = () => {
+	winner.value = null;
+	total.value = 0;
+	diceThrows.value = 0;
+	socket.emit("game", { user: user.value });
+};
 </script>
 <template>
-	<div>
-		<h2>Dicer</h2>
-		<button @click="throwTheDice">Throw the dice</button>
-	</div>
-	<div>
-		<div class="kastInformation">
-			<ul>
-				<li v-for="kast in kasten">
-					<p>Värde:{{ kast.diceValue }}</p>
-					<p>antalkast: {{ kast.diceThrows }}</p>
-					<p>totalavärdet: {{ kast.total }}</p>
-					<p>användare: {{ kast.user }}</p>
-				</li>
-			</ul>
+	<h1>{{ user }}</h1>
+	Winner: {{ winner }}
+	<div v-if="!winner">
+		<p>Antal spelare:{{ activePlayers?.users?.length }}</p>
+		<p>
+			Senaste spelaren:
+			{{ latestPlayer }}
+		</p>
+		<div v-if="!notPlayer">
+			<h2>Dicer</h2>
+			<div v-if="activePlayers?.users?.length < 2">Vänta på spelare</div>
+			<div v-else>
+				<div>
+					<h3>Spelare:</h3>
+					<p v-for="player in activePlayers.users">{{ player }}</p>
+				</div>
+				<div>
+					<p v-if="latestPlayer == user">Wait for your turn</p>
+					<button v-else @click="throwTheDice">Throw the dice</button>
+				</div>
+			</div>
 		</div>
-		<div class="messages">
-			<form @submit.prevent="sendMessage">
-				<label>Meddelande:</label>
-				<input type="text" v-model="userMessage" />
-				<button>Skicka Meddelande</button>
-			</form>
-			<div>
+		<div v-else>
+			<p>Tyvärr är det fullt just nu, kom gärna senare {{ user }}</p>
+		</div>
+		<div>
+			<div class="kastInformation">
 				<ul>
-					<li v-for="message in messages">
-						<p>
-							Användare:
-							{{ message.user }}
-						</p>
-						<p>Meddelande:</p>
-						<p>
-							{{ message.message }}
-						</p>
+					<li v-for="kast in kasten">
+						<p>Värde:{{ kast.diceValue }}</p>
+						<p>antalkast: {{ kast.diceThrows }}</p>
+						<p>totalavärdet: {{ kast.total }}</p>
+						<p>användare: {{ kast.user }}</p>
 					</li>
 				</ul>
 			</div>
+			<div class="messages">
+				<form @submit.prevent="sendMessage">
+					<label>Meddelande:</label>
+					<input type="text" v-model="userMessage" />
+					<button>Skicka Meddelande</button>
+				</form>
+				<div>
+					<ul>
+						<li v-for="message in messages">
+							<p>
+								Användare:
+								{{ message.user }}
+							</p>
+							<p>Meddelande:</p>
+							<p>
+								{{ message.message }}
+							</p>
+						</li>
+					</ul>
+				</div>
+			</div>
 		</div>
+	</div>
+	<div v-else>
+		<button @click="newgame">spela!</button>
 	</div>
 </template>
 <style scoped>

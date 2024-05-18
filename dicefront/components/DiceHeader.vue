@@ -4,7 +4,7 @@
 		<menu class="linkMeny">
 			<NuxtLink class="links" to="/">Hem</NuxtLink>
 			<NuxtLink class="links" to="/login">login</NuxtLink>
-			<NuxtLink class="links" to="/TestPAge">testpage</NuxtLink>
+			<!-- <NuxtLink class="links" to="/TestPAge">testpage</NuxtLink> -->
 			<NuxtLink class="links" to="/Dicer">Dice</NuxtLink>
 		</menu>
 	</div>

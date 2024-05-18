@@ -20,11 +20,12 @@ connectionMongoDB();
 const DiceModel = require("./models/diceModel");
 app.use("/", diceRoutes);
 app.use("/auth", authRoutes);
-// app.get("/test", async (req, res) => {
-// 	res.send("hej");
-// });
 const jwt = require("jsonwebtoken");
 const secretKey = "your-secret-key";
+// variabler för att hålla koll på spel
+let users = [];
+// senaste kastaren.
+let latestPlayer;
 
 const authenticateSocket = (socket, next) => {
 	const token = socket.handshake.auth.token;
@@ -49,26 +50,76 @@ io.on("connection", (socket) => {
 	socket.on("test", (test) => {
 		console.log("message", test, socket.id);
 	});
+
+	// när spelare har loggat in se om det redan är fullt om inte ge initialavärden till spelaren:
+	socket.on("game", (varde) => {
+		let checkUser = users.filter((us) => us == varde.user);
+		if (checkUser.length <= 0 && users.length < 2) {
+			users.push(varde.user);
+		} else {
+			console.log("else", users);
+			//kolla om det är akit en spelare
+			let player = users.filter((pl) => pl == varde.user);
+			if (player.length < 1) {
+				io.emit("notaplayer", {
+					not: "not",
+					users: users
+				});
+				return;
+			}
+		}
+		io.emit("players", {
+			user: varde.user,
+			users: users
+		});
+		checkUser = [];
+	});
+
+	//backend kast istället
+	socket.on("thrower", (kast) => {
+		//kolla om det är akit en spelare
+		let player = users.filter((pl) => pl == kast.user);
+		// gör det omöjligt för ejaktiv spelare att registrera kast
+		if (player.length < 1) {
+			io.emit("notaplayer", {
+				not: "not"
+			});
+			return;
+		}
+		latestPlayer = kast.user;
+		let diceValue = Math.floor(Math.random() * 6 + 1);
+		let diceThrow = 0;
+		diceThrow = kast.diceThrows + 1;
+		let total = kast.total + diceValue;
+		if (total > 10) {
+			users = [];
+			io.emit("winner", {
+				winner: kast.user,
+				total: total
+			});
+		}
+		io.emit("newThrow", {
+			latestPlayer: latestPlayer,
+			diceValue: diceValue,
+			diceThrows: diceThrow,
+			total: total,
+			user: kast.user
+		});
+		const throwToMongo = new DiceModel({
+			latestPlayer: latestPlayer,
+			diceValue: diceValue,
+			diceThrows: diceThrow,
+			total: total,
+			user: kast.user
+		});
+		throwToMongo.save();
+	});
+
 	socket.on("chatMessage", (message) => {
 		console.log("meddelande", message);
 		io.emit("newMessage", { user: message.user, message: message.message });
 	});
-	socket.on("dice", (newThrow) => {
-		console.log("newThrow", newThrow);
-		io.emit("newThrow", {
-			diceValue: newThrow.diceValue,
-			diceThrows: newThrow.diceThrows,
-			total: newThrow.total,
-			user: newThrow.user
-		});
-		const throwToMongo = new DiceModel({
-			user: newThrow.user,
-			diceThrowNr: newThrow.diceThrows,
-			diceValue: newThrow.diceValue,
-			total: newThrow.total
-		});
-		throwToMongo.save();
-	});
+
 	socket.on("disconnect", () => {
 		console.log(`id: ${socket.id} har loggat ut`);
 	});
