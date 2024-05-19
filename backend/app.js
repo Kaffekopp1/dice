@@ -59,8 +59,7 @@ io.on("connection", (socket) => {
 		} else {
 			console.log("else", users);
 			//kolla om det är akit en spelare
-			let player = users.filter((pl) => pl == varde.user);
-			if (player.length < 1) {
+			if (checkUser.length < 1) {
 				io.emit("notaplayer", {
 					not: "not",
 					users: users
