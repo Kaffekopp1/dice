@@ -75,7 +75,7 @@ io.on("connection", (socket) => {
 		checkUser = [];
 	});
 
-	// TODO gör om själva spelet till backend efter inlämning
+	// TODO gör kastet i backend efter inlämning
 	socket.on("thrower", (kast) => {
 		//kolla om det är akit en spelare
 		let player = users.filter((pl) => pl == kast.user);
@@ -87,11 +87,13 @@ io.on("connection", (socket) => {
 			return;
 		}
 		latestPlayer = kast.user;
+		// hade först spelet här men såg att det var ett betygskriterie att spelet skulle vara i frontend
 		// let diceValue = Math.floor(Math.random() * 6 + 1);
 		let diceValue = kast.value;
 		let diceThrow = 0;
 		diceThrow = kast.diceThrows + 1;
-		let total = kast.total + diceValue;
+		//let total = kast.total + diceValue;
+		let total = kast.total;
 		if (total > 10) {
 			users = [];
 			io.emit("winner", {

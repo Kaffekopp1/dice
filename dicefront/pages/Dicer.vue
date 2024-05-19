@@ -53,6 +53,7 @@ socket.on("players", (pl) => {
 //TODO gör spelet i backend efter inlämning
 const throwTheDice = () => {
 	let diceValue = Math.floor(Math.random() * 6 + 1);
+	total = total.value + diceValue;
 	socket.emit("thrower", {
 		value: diceValue,
 		total: total.value,
