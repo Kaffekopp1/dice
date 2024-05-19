@@ -14,6 +14,7 @@ const latestPlayer = ref("");
 const total = ref(0);
 const winner = ref(null);
 const diceThrows = ref(0);
+const wTotal = ref(0);
 const userMessage = ref(null);
 const messages = ref([]);
 const token = ref(nuxtStorage.localStorage.getData("token"));
@@ -49,9 +50,11 @@ socket.on("players", (pl) => {
 		? (notPlayer.value = false)
 		: (notPlayer.value = true);
 });
-//TODO lägg även total endast i backend
+//TODO gör spelet i backend efter inlämning
 const throwTheDice = () => {
+	let diceValue = Math.floor(Math.random() * 6 + 1);
 	socket.emit("thrower", {
+		value: diceValue,
 		total: total.value,
 		diceThrows: diceThrows.value,
 		user: user.value
@@ -100,6 +103,7 @@ socket.on("latestPlayer", (lp) => {
 
 socket.on("winner", (w) => {
 	winner.value = w.winner;
+	wTotal.value = w.total;
 	diceThrows.value = 0;
 });
 onBeforeUnmount(() => {
@@ -114,7 +118,7 @@ const newgame = () => {
 </script>
 <template>
 	<h1>{{ user }}</h1>
-	Winner: {{ winner }}
+	Vinnare: {{ winner }} Totalt: {{ wTotal }}
 	<div v-if="!winner">
 		<p>Antal spelare:{{ activePlayers?.users?.length }}</p>
 		<p>
